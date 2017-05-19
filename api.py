@@ -2,9 +2,9 @@
 
 Python API for PriorityStoreLite. Built on top of commonly available UNIX tools.
 
-Exposes a simple CRUD API. Assumes that user to which SSH is done to has root access.
+Exposes a simple CRUD API. Assumes that user to which SSH is done to has public key SSH configured.
 
-Expects username of hduser.
+Author: Brian Tuan
 """
 
 import os
@@ -48,12 +48,24 @@ class PriorityStoreLite:
 
         if node is None:
             node = self.datanodes[randrange(len(self.datanodes))]
+        elif node not in self.datanodes:
+            return None
+
         self.metadata[filename] = {'node': node, 'modified': time.time()}
         self.persist_metadata()
+
+        if '/' in filename:
+            basename = filename[:filename.rfind('/')]
+        else:
+            basename = ''
+        self.execute_command('mkdir -p "{}"'.format(self.config['path'] + basename), node)
 
         return self.execute_command(command, node)
 
     def delete_file(self, filename):
+        if filename not in self.metadata:
+            return None
+
         command = "rm -rf filename"
         node = self.metadata[filename]
         del self.metadata[filename]

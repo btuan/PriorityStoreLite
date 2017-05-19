@@ -43,7 +43,7 @@ class PriorityStoreLite:
             return None
 
         path = self.config['path'] + filename
-        command = "head -c {} </dev/urandom > {}".format(size, self.config['path'] + filename)
+        command = "head -c {} </dev/urandom > {}".format(size, path)
 
         if node is None:
             node = self.datanodes[randrange(len(self.datanodes))]

@@ -6,7 +6,6 @@ Command-line interface for PriorityStoreLite. Requires click
     $ pip3 install click
 
 Author: Brian Tuan
-
 """
 
 import click

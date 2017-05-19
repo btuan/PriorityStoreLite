@@ -7,7 +7,6 @@ Exposes a simple CRUD API. Assumes that user to which SSH is done to has public 
 Author: Brian Tuan
 """
 
-import os
 import json
 from random import randrange
 from subprocess import run
@@ -29,7 +28,7 @@ class PriorityStoreLite:
                 self.metadata = {}
 
         with open(self.config_dir + 'datanodes.json', 'r') as f:
-            self.datanodes = json.load(f)
+            self.datanodes = json.load(f)['nodelist']
             assert(len(self.datanodes) != 0)
 
     def persist_metadata(self):
@@ -39,7 +38,7 @@ class PriorityStoreLite:
     def execute_command(self, command, node):
         return run(['ssh', node, command])
 
-    def create_file(self, filename, size=1048576, node=None):
+    def create_file(self, filename, size=1048576, node=None, priority=0):
         if filename in self.metadata:
             return None
 
@@ -51,7 +50,11 @@ class PriorityStoreLite:
         elif node not in self.datanodes:
             return None
 
-        self.metadata[filename] = {'node': node, 'modified': time.time()}
+        self.metadata[filename] = {
+            'node': node,
+            'modified': time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()),
+            'priority': priority,
+        }
         self.persist_metadata()
 
         if filename.count('/') > 1:
@@ -78,8 +81,8 @@ class PriorityStoreLite:
             return None
         else:
             node = self.metadata[filename]['node']
-            self.metadata[filename]['modified'] = time.time()
+            self.metadata[filename]['modified'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
         return run(['scp', node + ':' + self.config['path'] + filename, output])
 
     def list_files(self):
-        return list(self.metadata.keys())
+        return self.metadata

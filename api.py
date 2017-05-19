@@ -44,7 +44,7 @@ class PriorityStoreLite:
             return None
 
         path = self.config['path'] + filename
-        command = "head -c {} </dev/urandom > {}".format(size, filename)
+        command = "head -c {} </dev/urandom > {}".format(size, self.config['path'] + filename)
 
         if node is None:
             node = self.datanodes[randrange(len(self.datanodes))]
@@ -54,7 +54,7 @@ class PriorityStoreLite:
         self.metadata[filename] = {'node': node, 'modified': time.time()}
         self.persist_metadata()
 
-        if '/' in filename:
+        if filename.count('/') > 1:
             basename = filename[:filename.rfind('/')]
         else:
             basename = ''
@@ -66,8 +66,8 @@ class PriorityStoreLite:
         if filename not in self.metadata:
             return None
 
-        command = "rm -rf filename"
-        node = self.metadata[filename]
+        command = "rm -rf {}".format(self.config['path'] + filename)
+        node = self.metadata[filename]['node']
         del self.metadata[filename]
 
         self.persist_metadata()
@@ -79,7 +79,7 @@ class PriorityStoreLite:
         else:
             node = self.metadata[filename]['node']
             self.metadata[filename]['modified'] = time.time()
-        return run(['scp', node + ':' + filename, output])
+        return run(['scp', node + ':' + self.config['path'] + filename, output])
 
     def list_files(self):
-        return self.metadata.keys()
+        return list(self.metadata.keys())

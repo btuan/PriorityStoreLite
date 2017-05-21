@@ -81,7 +81,7 @@ class PriorityStoreLite:
     def create_file(self, filename, size=67108864*2, node=None, priority=0):
         if filename in self.metadata:
             return None
-
+        
         if node is None:
             node = self.datanodes[randrange(len(self.datanodes))]
         elif node not in self.datanodes:

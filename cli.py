@@ -52,7 +52,7 @@ def run(config_dir, command, verbose):
         elif len(cmd) == 3:
             rc = psl.create_file(cmd[1], node=cmd[2])
             if rc is None:
-                print('ERROR: {} already exists in the filesystem'.format(cmd[1]) + ' OR ' +
+                print('ERROR: {} already exists in the filesystem, storage is full, '.format(cmd[1]) + ' OR ' +
                       '{} is not a valid user@FQDN specification.'.format(cmd[2]))
         else:
             print('ERROR: syntax --- ./cli.py put <filename> <node>')

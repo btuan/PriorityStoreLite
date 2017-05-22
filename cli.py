@@ -15,7 +15,7 @@ from pprint import PrettyPrinter
 
 @click.command()
 @click.option("-d", "--config_dir", help="Path to directory containing configuration files.", required=True)
-@click.option("-c", "--command", help="PriorityStore API command.")
+@click.option("-c", "--command", help="PriorityStore API command.", required=True)
 @click.option("-v", "--verbose", default=False, is_flag=True, help="Toggle for verbosity.")
 def run(config_dir, command, verbose):
     psl = PriorityStoreLite(config_dir)

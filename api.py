@@ -8,14 +8,31 @@ Author: Brian Tuan
 """
 
 import json
+from multiprocessing import cpu_count
+import queue
 from random import randrange
 from subprocess import run
 import time
+from threading import Thread
+
+
+def psl_worker(psl):
+    while True:
+        command = psl.queue.get()
+        if command is None:
+            break
+        func, args, kwargs = command
+        func(*args, **kwargs)
+        if psl.verbose:
+            print(func.__name__, args, kwargs)
+        psl.queue.task_done()
 
 
 class PriorityStoreLite:
-    def __init__(self, config_dir):
+    def __init__(self, config_dir, verbose=False):
+        self.verbose = verbose
         self.config_dir = config_dir + '/' if config_dir[-1] != '/' else config_dir
+        self.queue = queue.Queue()
 
         with open(self.config_dir + 'config.json', 'r') as f:
             self.config = json.load(f)
@@ -38,7 +55,7 @@ class PriorityStoreLite:
     def execute_command(self, command, node):
         return run(['ssh', node, command])
 
-    def create_file(self, filename, size=1048576, node=None, priority=0):
+    def create_file(self, filename, size=1048576, node=None, priority=0, persist=True):
         if filename in self.metadata:
             return None
 
@@ -55,7 +72,8 @@ class PriorityStoreLite:
             'modified': time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()),
             'priority': priority,
         }
-        self.persist_metadata()
+        if persist:
+            self.persist_metadata()
 
         if filename.count('/') > 1:
             basename = filename[:filename.rfind('/')]
@@ -65,7 +83,7 @@ class PriorityStoreLite:
 
         return self.execute_command(command, node)
 
-    def delete_file(self, filename):
+    def delete_file(self, filename, persist=True):
         if filename not in self.metadata:
             return None
 
@@ -73,7 +91,8 @@ class PriorityStoreLite:
         node = self.metadata[filename]['node']
         del self.metadata[filename]
 
-        self.persist_metadata()
+        if persist:
+            self.persist_metadata()
         return self.execute_command(command, node)
 
     def retrieve_file(self, filename, output='./'):
@@ -86,3 +105,23 @@ class PriorityStoreLite:
 
     def list_files(self):
         return self.metadata
+
+    def submit_tasks(self, task_list):
+        """ Asynchronously process tasks in a task list, given as (func, args, kwargs). """
+        num_workers = cpu_count()
+        threads = []
+        for _ in range(num_workers):
+            t = Thread(target=psl_worker, args=[self])
+            t.start()
+            threads.append(t)
+
+        for task in task_list:
+            self.queue.put(task)
+
+        # https://docs.python.org/3/library/queue.html
+        for _ in range(num_workers):
+            self.queue.put(None)
+        for t in threads:
+            t.join()
+
+

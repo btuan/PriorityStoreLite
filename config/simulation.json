@@ -1,5 +1,6 @@
 {
-  "num_files": 100,
+  "num_files": 10,
   "size_per_file": 1048576,
-  "duration": 60
+  "duration": 60,
+  "accesses_per_second": 5
 }

@@ -140,7 +140,7 @@ class PriorityStoreLite:
     def list_files(self):
         return self.metadata
 
-    def submit_tasks(self, task_list):
+    def submit_tasks(self, task_list, block=False):
         """ Asynchronously process tasks in a task list, given as (func, args, kwargs). """
         num_workers = cpu_count()
         threads = []
@@ -156,7 +156,9 @@ class PriorityStoreLite:
         # https://docs.python.org/3/library/queue.html
         for _ in range(num_workers):
             task_queue.put(None)
-        for t in threads:
-            t.join()
+
+        if block:
+            for t in threads:
+                t.join()
 
 

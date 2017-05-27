@@ -16,22 +16,21 @@ import time
 import numpy as np
 from threading import Thread
 
-def psl_worker(psl):
+def psl_worker(psl, task_queue):
     while True:
-        command = psl.queue.get()
+        command = task_queue.get()
         if command is None:
             break
         func, args, kwargs = command
         func(*args, **kwargs)
         if psl.verbose:
             print(func.__name__, args, kwargs)
-        psl.queue.task_done()
+        task_queue.task_done()
 
 class PriorityStoreLite:
     def __init__(self, config_dir, verbose=False):
         self.verbose = verbose
         self.config_dir = config_dir + '/' if config_dir[-1] != '/' else config_dir
-        self.queue = queue.Queue()
 
         with open(self.config_dir + 'config.json', 'r') as f:
             self.config = json.load(f)
@@ -145,17 +144,18 @@ class PriorityStoreLite:
         """ Asynchronously process tasks in a task list, given as (func, args, kwargs). """
         num_workers = cpu_count()
         threads = []
+        task_queue = queue.Queue()
         for _ in range(num_workers):
-            t = Thread(target=psl_worker, args=[self])
+            t = Thread(target=psl_worker, args=[self, task_queue])
             t.start()
             threads.append(t)
 
         for task in task_list:
-            self.queue.put(task)
+            task_queue.put(task)
 
         # https://docs.python.org/3/library/queue.html
         for _ in range(num_workers):
-            self.queue.put(None)
+            task_queue.put(None)
         for t in threads:
             t.join()
 

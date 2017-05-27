@@ -11,8 +11,18 @@ import click
 import json
 import time
 
-from multiprocessing import Queue, Pool, cpu_count
 from api import PriorityStoreLite
+from random import random, randrange
+
+""" ACCESS DISTRIBUTION WITH RESPECT TO FILE PRIORITY 
+PRIORITY LEVELS:
+    0 - HIGH (1% of files)
+    1 - MED (9% of files)
+    2 - LOW (99% of files)
+
+"""
+FILE_FREQUENCY = {0: 0.01, 1: 0.09, 2: 0.99}
+ACCESS_FREQUENCY = {0: 0.15, 1: 35, 2: 0.5}
 
 
 def load_configs(config_dir):
@@ -22,10 +32,27 @@ def load_configs(config_dir):
     return config
 
 
+def draw_access_sample(psl, num_files):
+    files_hi = [k for k, v in psl.metadata.items() if v['priority'] == 0]
+    files_med = [k for k, v in psl.metadata.items() if v['priority'] == 1]
+    files_lo = [k for k, v in psl.metadata.items() if v['priority'] == 2]
+
+    file_list = []
+    for _ in num_files:
+        num = random()
+        if num < ACCESS_FREQUENCY[0]:
+            file_list.append(files_hi[randrange(len(files_hi))])
+        elif num < ACCESS_FREQUENCY[0] + ACCESS_FREQUENCY[1]:
+            file_list.append(files_med[randrange(len(files_med))])
+        else:
+            file_list.append(files_lo[randrange(len(files_lo))])
+
+    return file_list
+
+
 def simulate(config_dir, output_path, verbose):
     config = load_configs(config_dir)
     psl = PriorityStoreLite(config_dir, verbose=verbose)
-    pool = Pool(cpu_count() * 2)
 
     # Initialize filesystem
     # First, delete all files that are currently in this PSL instance (synchronous).
@@ -44,13 +71,27 @@ def simulate(config_dir, output_path, verbose):
         print("Creating PSL simulation files.")
     file_size = config['size_per_file'] if 'size_per_file' in config else None
     for i in range(config['num_files']):
+        num = random()
+        if num < FILE_FREQUENCY[0]:
+            priority = 0
+        elif num < FILE_FREQUENCY[0] + FILE_FREQUENCY[1]:
+            priority = 1
+        else:
+            priority = 2
+
         filename = '{}.psl'.format(i)
         if file_size is not None:
-            task_list.append((psl.create_file, [filename], {'size': file_size, 'persist': False}))
+            task_list.append((psl.create_file, [filename], {'size': file_size, 'persist': False, 'priority': priority}))
         else:
-            task_list.append((psl.create_file, [filename], {'persist': False}))
+            task_list.append((psl.create_file, [filename], {'persist': False, 'priority': priority}))
     psl.submit_tasks(task_list)
     psl.persist_metadata()
+
+    # Access a file per second
+    accesses_per_second = config['accesses_per_second']
+    for i in range(config['duration']):
+        pass
+
 
 
 

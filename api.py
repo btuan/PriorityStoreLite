@@ -73,7 +73,7 @@ class PriorityStoreLite:
     def execute_command(self, node, command):
         return run(['ssh', node, command])
 
-    def create_file(self, filename, size=67108864, node=None, priority=0):
+    def create_file(self, filename, size=67108864, node=None, priority=0, persist=True):
         if filename in self.metadata or (node is not None and node not in self.datanodes):
             return None
 

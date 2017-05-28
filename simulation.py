@@ -10,6 +10,7 @@ Author: Brian Tuan
 import click
 import json
 import time
+import sys
 
 from api import PriorityStoreLite
 from random import random, randrange
@@ -24,6 +25,18 @@ PRIORITY LEVELS:
 FILE_FREQUENCY = {0: 0.01, 1: 0.09, 2: 0.99}
 ACCESS_FREQUENCY = {0: 0.15, 1: 35, 2: 0.5}
 
+# credit to : https://stackoverflow.com/questions/616645/how-do-i-duplicate-sys-stdout-to-a-log-file-in-python
+class Logger(object):
+    def __init__(self):
+        self.terminal = sys.stdout
+        self.log = open("log.txt", "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        sys.stdout.flush()
 
 def load_configs(config_dir):
     config_dir = config_dir + '/' if config_dir[-1] != '/' else config_dir
@@ -52,10 +65,20 @@ def draw_access_sample(psl, num_files):
 
     return file_list
 
+def determine_bottomline_latency(size_per_file, psl, verbose):
+    if verbose:
+        print("Determining the default latency")
+
+    filename = "latency.psl"
+    psl.create_file(filename, size=size_per_file, priority=1, persist=False)
+    #psl.retrieve_file()
 
 def simulate(config_dir, output_path, verbose):
     config = load_configs(config_dir)
     psl = PriorityStoreLite(config_dir, verbose=verbose)
+
+    # We want to not only print but also save the output. 
+    # sys.stdout = Logger()
 
     # Initialize filesystem
     # First, delete all files that are currently in this PSL instance (synchronous).

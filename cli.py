@@ -14,10 +14,12 @@ from pprint import PrettyPrinter
 
 
 @click.command()
-@click.option("-d", "--config_dir", help="Path to directory containing configuration files.", required=True)
+@click.option("-d", "--config_dir", help="Path to directory containing configuration files.")
 @click.option("-c", "--command", help="PriorityStore API command.", required=True)
-@click.option("-v", "--verbose", default=False, is_flag=True, help="Toggle for verbosity.")
-def run(config_dir, command, verbose):
+@click.option("-v", "--verbose", default=True, is_flag=True, help="Toggle for verbosity.")
+def run(command, config_dir, verbose):
+    if not config_dir:
+        config_dir = "config"
     psl = PriorityStoreLite(config_dir)
     p = PrettyPrinter(indent=4)
 

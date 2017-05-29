@@ -87,7 +87,7 @@ class PriorityStoreLite:
             self.latencies.append(30)
         self.effective = []
         for i in range(self.num):
-            self.effective = [1.0/self.latencies[i]]
+            self.effective.append(1.0/self.latencies[i])
         # SOME CONSTANTS OF THE SYSTEM.
         # 16 GB storage on each
         self.capacities = [17179869184] * self.num # old value 16777216000
@@ -150,7 +150,8 @@ class PriorityStoreLite:
         # update the effectiveness of the node.
         self.effective[node] = (
             (self.available[node]/self.capacities[node])**2)/self.latencies[node]
-
+        self.persist_metadata()
+        print ("Choosing node ", node, " because ", self.effective, self.available)
         return np.asscalar(node)
 
     def delete_file(self, filename, persist=True):
@@ -159,8 +160,6 @@ class PriorityStoreLite:
 
         command = "rm -rf {}".format(self.config['path'] + filename)
         node = self.metadata[filename]['node']
-        print("delete_file from ", node)
-        return
         del self.metadata[filename]
 
         if persist:

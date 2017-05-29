@@ -23,7 +23,7 @@ PRIORITY LEVELS:
 
 """
 FILE_FREQUENCY = {0: 0.01, 1: 0.09, 2: 0.99}
-ACCESS_FREQUENCY = {0: 0.15, 1: 35, 2: 0.5}
+ACCESS_FREQUENCY = {0: 0.15, 1: 0.35, 2: 0.5}
 
 # We want to not only print but also save the output. 
 sys.stdout = Logger()

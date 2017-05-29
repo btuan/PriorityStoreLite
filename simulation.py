@@ -92,7 +92,7 @@ def simulate(config_dir, output_path, verbose):
     psl.submit_tasks(task_list, block=True)
     psl.persist_metadata()
     # Reset PSL metadata
-    del self.metadata["PSL"]
+    del psl.metadata["PSL"]
     psl.setup_system_info()
     print()
 

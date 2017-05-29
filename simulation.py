@@ -106,10 +106,12 @@ def simulate(config_dir, output_path, verbose):
     # Access a file per second
     print("Simulating file accesses.")
     for i in range(config['duration']):
+        print("Time step", i)
         file_list = draw_access_sample(psl, config['accesses_per_second'])
         task_list = [(psl.retrieve_file, [name], {'output': '/dev/null'}) for name in file_list]
         psl.submit_tasks(task_list)
         time.sleep(1)
+        print()
 
 
 @click.command()

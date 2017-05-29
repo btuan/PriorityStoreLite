@@ -25,6 +25,9 @@ PRIORITY LEVELS:
 FILE_FREQUENCY = {0: 0.01, 1: 0.09, 2: 0.99}
 ACCESS_FREQUENCY = {0: 0.15, 1: 35, 2: 0.5}
 
+# We want to not only print but also save the output. 
+sys.stdout = Logger()
+
 def load_configs(config_dir):
     config_dir = config_dir + '/' if config_dir[-1] != '/' else config_dir
     with open(config_dir + 'simulation.json', 'r') as f:
@@ -52,20 +55,26 @@ def draw_access_sample(psl, num_files):
 
     return file_list
 
-def determine_bottomline_latency(size_per_file, psl, verbose):
+def set_bottomline_latency(psl, config, size_per_file=67108864, verbose=True):
     if verbose:
         print("Determining the default latency")
 
     filename = "latency.psl"
     psl.create_file(filename, size=size_per_file, priority=1, persist=False)
-    #psl.retrieve_file()
+    time_before = time.time()
+    psl.retrieve_file(filename)
+    time_after = time.time()
+    time_taken = time_after - time_before
+    print("Setting initial latency differences")
+    psl.latencies = [time_taken*(1+config["latency_difference"]), time_taken] * int(self.num*0.5)
+    if int(self.num/2.0)*2 != self.num:
+        # uneven number of datanodes
+        psl.latencies.append(time_taken)
+    print(psl.latencies)
 
 def simulate(config_dir, output_path, verbose):
     config = load_configs(config_dir)
     psl = PriorityStoreLite(config_dir, verbose=verbose)
-
-    # We want to not only print but also save the output. 
-    # sys.stdout = Logger()
 
     # Initialize filesystem
     # First, delete all files that are currently in this PSL instance (synchronous).
@@ -80,10 +89,10 @@ def simulate(config_dir, output_path, verbose):
     print()
 
     # Next, populate PSL with simulation files (synchronous).
-    task_list = []
-    if verbose:
-        print("Creating PSL simulation files.")
     file_size = config['size_per_file'] if 'size_per_file' in config else None
+    if verbose:
+        print("Creating PSL simulation files, each of size {}.".format(file_size))
+    task_list = []
     for i in range(config['num_files']):
         num = random()
         if num < FILE_FREQUENCY[0]:
@@ -104,14 +113,17 @@ def simulate(config_dir, output_path, verbose):
     print()
 
     # Access a file per second
+    stats = {}
     print("Simulating file accesses.")
     for i in range(config['duration']):
         print("Time step", i)
+        stats[i] = {}
         file_list = draw_access_sample(psl, config['accesses_per_second'])
-        task_list = [(psl.retrieve_file, [name], {'output': '/dev/null'}) for name in file_list]
-        psl.submit_tasks(task_list)
+        task_list = [(psl.retrieve_file, [name], {'output': '/dev/null', 'step' : i}) for name in file_list]
+        psl.submit_tasks(task_list, stats=stats)
         time.sleep(1)
         print()
+    print("Stats", stats)
 
 
 @click.command()

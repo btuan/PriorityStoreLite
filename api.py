@@ -17,13 +17,19 @@ import numpy as np
 from threading import Thread
 import sys
 
-def psl_worker(psl, task_queue):
+def psl_worker(psl, task_queue, stats):
     while True:
         command = task_queue.get()
         if command is None:
             break
         func, args, kwargs = command
+        time_before = time.time()
         func(*args, **kwargs)
+        time_after = time.time()
+        time_taken = time_after - time_before
+        # Save the statistics
+        if stats:
+            stats[int(kwargs['step'])][args[0]] = time_taken
         if psl.verbose:
             print(func.__name__, args, kwargs)
         task_queue.task_done()
@@ -117,7 +123,7 @@ class PriorityStoreLite:
             'node_id': node_id,
             'node': self.datanodes[node_id],
             'modified': time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()),
-            'priority': priority,
+            'priority': priority
         }
         if persist:
             self.persist_metadata()
@@ -128,8 +134,9 @@ class PriorityStoreLite:
             basename = ''
 
         self.execute_command(node, 'mkdir -p "{}"'.format(self.config['path'] + basename))
-        self.execute_command(node, command)
-        return 1.0
+        return  self.execute_command(node, command):
+        # print("File creation has failed!")
+        # return 1.0
 
     def placement_node_ids(self):
         node = np.argmax(self.effective)
@@ -147,19 +154,21 @@ class PriorityStoreLite:
         return np.asscalar(node)
 
     def delete_file(self, filename, persist=True):
-        if filename not in self.metadata:
+        if filename not in self.metadata or filename == "PSL":
             return None
 
         command = "rm -rf {}".format(self.config['path'] + filename)
         node = self.metadata[filename]['node']
+        print("delete_file from ", node)
+        return
         del self.metadata[filename]
 
         if persist:
             self.persist_metadata()
         return self.execute_command(command, node)
 
-    def retrieve_file(self, filename, output='./'):
-        if filename not in self.metadata:
+    def retrieve_file(self, filename, output='./', step=None):
+        if filename not in self.metadata or filename == "PSL":
             return None
         else:
             node = self.metadata[filename]['node']
@@ -169,13 +178,13 @@ class PriorityStoreLite:
     def list_files(self):
         return self.metadata
 
-    def submit_tasks(self, task_list, block=False):
+    def submit_tasks(self, task_list, block=False, stats=None):
         """ Asynchronously process tasks in a task list, given as (func, args, kwargs). """
         num_workers = cpu_count()
         threads = []
         task_queue = queue.Queue()
         for _ in range(num_workers):
-            t = Thread(target=psl_worker, args=[self, task_queue])
+            t = Thread(target=psl_worker, args=[self, task_queue, stats])
             t.start()
             threads.append(t)
 

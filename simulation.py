@@ -123,7 +123,25 @@ def simulate(config_dir, output_path, verbose):
         psl.submit_tasks(task_list, stats=stats)
         time.sleep(1)
         print()
+
+    time.sleep(10)
     print("Stats", stats)
+    with open('stats.json', 'w') as f:
+            json.dump(stats, f)
+
+    file_stats = {}
+    for run, value in stats.items():
+        for filename, latency in value.items():
+            if filename not in file_stats:
+                file_stats[filename] = {}
+                file_stats[filename]["latency"] = 0.0
+                file_stats[filename]["counter"] = 1
+            file_stats[filename]["latency"] += latency
+            file_stats[filename]["counter"] += 1
+
+    for filename, value in file_stats.items():
+        print(filename, psl.metadata[filename]['priority'], "%0.3f" % (value[latency]/value[counter]))
+
 
 
 @click.command()

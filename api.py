@@ -163,7 +163,7 @@ class PriorityStoreLite:
             (self.available[node]/self.capacities[node])**2)/self.latencies[node]
         if persist:
             self.persist_metadata()
-        return np.asscalar(node)
+        return node
 
     def delete_file(self, filename, persist=True):
         if filename not in self.metadata or filename == "PSL":

@@ -151,6 +151,8 @@ class PriorityStoreLite:
         elif priority == 1:
             # Medium priority
             node = sorted_eff[min(int(0.05*n), 1)]
+        else:
+            print ("WRONG PRIORITY!")
         print ("Placement_node_id for priority", priority, "is", node)
         print (self.effective)
         # Main formula for effectiveness.

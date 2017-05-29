@@ -15,6 +15,7 @@ from subprocess import run
 import time
 import numpy as np
 from threading import Thread
+import sys
 
 def psl_worker(psl, task_queue):
     while True:
@@ -26,6 +27,19 @@ def psl_worker(psl, task_queue):
         if psl.verbose:
             print(func.__name__, args, kwargs)
         task_queue.task_done()
+
+# credit to : https://stackoverflow.com/questions/616645/how-do-i-duplicate-sys-stdout-to-a-log-file-in-python
+class Logger(object):
+    def __init__(self):
+        self.terminal = sys.stdout
+        self.log = open("log.txt", "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.terminal.flush()
 
 class PriorityStoreLite:
     def __init__(self, config_dir, verbose=False):
@@ -46,7 +60,21 @@ class PriorityStoreLite:
             self.datanodes = json.load(f)['nodelist']
             assert(len(self.datanodes) != 0)
 
+        self.setup_system_info()
+        # sys.stdout = Logger()
+
+    def setup_system_info(self):
         self.num = len(self.datanodes)
+
+        if "PSL" in self.metadata:
+            self.block_size = self.metadata["PSL"]["block_size"]
+            self.available = self.metadata["PSL"]["available"]
+            self.capacities = self.metadata["PSL"]["capacities"]
+            self.latencies = self.metadata["PSL"]["latencies"]
+            self.effective = self.metadata["PSL"]["effective"]
+            return
+
+        # This is usually an initial setup for a clean system.
         self.latencies = [90, 30] * int(self.num*0.5)
         if int(self.num/2.0)*2 != self.num:
             # uneven number of datanodes
@@ -56,8 +84,8 @@ class PriorityStoreLite:
             self.effective = [1.0/self.latencies[i]]
         # SOME CONSTANTS OF THE SYSTEM.
         # 16 GB storage on each
-        self.capacities = [16777216000] * self.num
-        self.available = [16777216000] * self.num
+        self.capacities = [17179869184] * self.num # old value 16777216000
+        self.available = [17179869184] * self.num
         self.block_size = 67108864
 
     def persist_metadata(self):
@@ -66,6 +94,7 @@ class PriorityStoreLite:
             'available': self.available,
             'block_size': self.block_size,
             'latencies': self.latencies,
+            'effective': self.effective
         }
         with open(self.config_dir + 'metadata.json', 'w') as f:
             json.dump(self.metadata, f)
@@ -161,4 +190,34 @@ class PriorityStoreLite:
             for t in threads:
                 t.join()
 
+    def print_file_info(self):
+        print("Filename, Priority, Node latency, Node")
+        print ("________________________________________")
+        for filename, info in self.metadata.items():
+            if filename == "PSL":
+                continue
+            node_id = info["node_id"]
+            print(filename, info["priority"], self.latencies[node_id], info["node"])
+        print()
 
+    def print_node_info(self):
+        print ("Node id,  available, latency, files")
+        print ("____________________________")
+        for i in range(self.num):
+            files = []
+            for filename, info in self.metadata.items():
+                if filename == "PSL":
+                    continue
+                node_id = info["node_id"]
+                if node_id == i:
+                    files.append(filename)
+            print(i, "        %0.3f" % (self.available[i]/1073741824.0), "GB   ", 
+                  self.latencies[i], "  ", files)
+        print()
+
+    def print_stats(self):
+        print()
+        self.print_node_info()
+        self.print_file_info()
+
+# End of file

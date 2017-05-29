@@ -1,7 +1,8 @@
 {
-  "num_files": 1,
-  "size_per_file": 1048576,
+  "num_files": 2,
+  "size_per_file": 67108864,
   "duration": 1,
   "accesses_per_second": 5,
-  "latency_difference": 50
+  "latency_difference": 50,
+  "high_latency": 30
 }

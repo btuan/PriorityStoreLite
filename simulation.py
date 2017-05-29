@@ -12,7 +12,7 @@ import json
 import time
 import sys
 
-from api import PriorityStoreLite
+from api import PriorityStoreLite, Logger
 from random import random, randrange
 
 """ ACCESS DISTRIBUTION WITH RESPECT TO FILE PRIORITY 
@@ -25,19 +25,6 @@ PRIORITY LEVELS:
 FILE_FREQUENCY = {0: 0.01, 1: 0.09, 2: 0.99}
 ACCESS_FREQUENCY = {0: 0.15, 1: 35, 2: 0.5}
 
-# credit to : https://stackoverflow.com/questions/616645/how-do-i-duplicate-sys-stdout-to-a-log-file-in-python
-class Logger(object):
-    def __init__(self):
-        self.terminal = sys.stdout
-        self.log = open("log.txt", "a")
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-
-    def flush(self):
-        sys.stdout.flush()
-
 def load_configs(config_dir):
     config_dir = config_dir + '/' if config_dir[-1] != '/' else config_dir
     with open(config_dir + 'simulation.json', 'r') as f:
@@ -46,9 +33,9 @@ def load_configs(config_dir):
 
 
 def draw_access_sample(psl, num_files):
-    files_hi = [k for k, v in psl.metadata.items() if v['priority'] == 0]
-    files_med = [k for k, v in psl.metadata.items() if v['priority'] == 1]
-    files_lo = [k for k, v in psl.metadata.items() if v['priority'] == 2]
+    files_hi = [k for k, v in psl.metadata.items() if k != "PSL" and v['priority'] == 0]
+    files_med = [k for k, v in psl.metadata.items() if k != "PSL" and v['priority'] == 1]
+    files_lo = [k for k, v in psl.metadata.items() if k != "PSL" and v['priority'] == 2]
     files = files_hi + files_med + files_lo
 
     file_list = []
@@ -113,6 +100,7 @@ def simulate(config_dir, output_path, verbose):
             task_list.append((psl.create_file, [filename], {'persist': False, 'priority': priority}))
     psl.submit_tasks(task_list, block=True)
     psl.persist_metadata()
+    psl.print_stats()
     print()
 
     # Access a file per second
@@ -125,10 +113,12 @@ def simulate(config_dir, output_path, verbose):
 
 
 @click.command()
-@click.option("-d", "--config_dir", help="Path to directory containing configuration files.", required=True)
+@click.option("-d", "--config_dir", help="Path to directory containing configuration files.")
 @click.option("-o", "--output_path", help="Path to location of simulation output.", default="sim_output.json")
-@click.option("-v", "--verbose", default=False, is_flag=True, help="Toggle for verbosity.")
+@click.option("-v", "--verbose", default=True, is_flag=True, help="Toggle for verbosity.")
 def run(config_dir, output_path, verbose):
+    if not config_dir:
+        config_dir = "config"
     simulate(config_dir, output_path, verbose)
 
 

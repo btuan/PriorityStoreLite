@@ -28,6 +28,12 @@ def run(command, config_dir, verbose):
         print("Listing files...")
         p.pprint(psl.list_files())
 
+    if cmd[0] == 'info':
+        print("Details on the system...")
+        psl.print_stats()
+
+    #sys.stdout = Logger()
+
     elif cmd[0] == 'del':
         if len(cmd) != 2:
             print('ERROR: del command requires two arguments.')

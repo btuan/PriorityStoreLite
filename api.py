@@ -134,7 +134,7 @@ class PriorityStoreLite:
             basename = ''
 
         self.execute_command(node, 'mkdir -p "{}"'.format(self.config['path'] + basename))
-        return  self.execute_command(node, command):
+        return  self.execute_command(node, command)
         # print("File creation has failed!")
         # return 1.0
 

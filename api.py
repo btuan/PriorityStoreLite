@@ -108,13 +108,13 @@ class PriorityStoreLite:
     def execute_command(self, node, command):
         return run(['ssh', node, command])
 
-    def create_file(self, filename, size=67108864, node=None, priority=0, persist=True):
+    def create_file(self, filename, size=67108864, node=None, priority=2, persist=True):
         if filename in self.metadata or (node is not None and node not in self.datanodes):
             return None
 
         path = self.config['path'] + filename
         command = "head -c {} </dev/urandom > {}".format(size, self.config['path'] + filename)
-        node_id = self.placement_node_ids()
+        node_id = self.placement_node_id(priority)
         if node_id is None:
             return None
         node = self.datanodes[node_id]
@@ -138,21 +138,29 @@ class PriorityStoreLite:
         # print("File creation has failed!")
         # return 1.0
 
-    def placement_node_ids(self):
-        node = np.argmax(self.effective)
+    def placement_node_id(self, priority=2, persist=True):
+        sorted_eff = [i[0] for i in sorted(
+            enumerate(self.effective), key=lambda x:x[1], reverse=True)]
+        n = len(sorted_eff)
+        if priority == 0:
+            # High priority
+            node = sorted_eff[0]
+        elif priority == 2:
+            # Low priority
+            node = sorted_eff[min(n - int(0.20*n), 0)]
+        elif priority == 1:
+            # Medium priority
+            node = sorted_eff[min(int(0.05*n), 1)]
+        print ("Placement_node_id for priority", priority, "is", node)
+        print (self.effective)
         # Main formula for effectiveness.
         self.available[node] -= self.block_size
         # No more available storage!
         assert self.available[node] > 0
-        #if (self.available[node] < 0):
-        #    # Roll back the change
-        #    self.available[node] += self.block_size
-        #    return None
-        # update the effectiveness of the node.
         self.effective[node] = (
             (self.available[node]/self.capacities[node])**2)/self.latencies[node]
-        self.persist_metadata()
-        print ("Choosing node ", node, " because ", self.effective, self.available)
+        if persist:
+            self.persist_metadata()
         return np.asscalar(node)
 
     def delete_file(self, filename, persist=True):

@@ -160,8 +160,13 @@ class PriorityStoreLite:
 
         command = "rm -rf {}".format(self.config['path'] + filename)
         node = self.metadata[filename]['node']
-        del self.metadata[filename]
+        # Recompute statistics
+        node_id = self.metadata[filename]['node_id']
+        self.available[node_id] += self.block_size
+        self.effective[node_id] = (
+            (self.available[node_id]/self.capacities[node_id])**2)/self.latencies[node_id]
 
+        del self.metadata[filename]
         if persist:
             self.persist_metadata()
         return self.execute_command(command, node)

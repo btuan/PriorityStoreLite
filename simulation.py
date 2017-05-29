@@ -91,6 +91,9 @@ def simulate(config_dir, output_path, verbose):
         task_list.append((psl.delete_file, [filename], {'persist': False}))
     psl.submit_tasks(task_list, block=True)
     psl.persist_metadata()
+    # Reset PSL metadata
+    del self.metadata["PSL"]
+    psl.setup_system_info()
     print()
 
     # Next, populate PSL with simulation files (synchronous).

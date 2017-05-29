@@ -143,10 +143,11 @@ class PriorityStoreLite:
         # Main formula for effectiveness.
         self.available[node] -= self.block_size
         # No more available storage!
-        if (self.available[node] < 0):
-            # Roll back the change
-            self.available[node] += self.block_size
-            return None
+        assert self.available[node] > 0
+        #if (self.available[node] < 0):
+        #    # Roll back the change
+        #    self.available[node] += self.block_size
+        #    return None
         # update the effectiveness of the node.
         self.effective[node] = (
             (self.available[node]/self.capacities[node])**2)/self.latencies[node]

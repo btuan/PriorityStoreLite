@@ -12,7 +12,7 @@ import json
 import time
 import sys
 
-from api import PriorityStoreLite, Logger
+from api import PriorityStoreLite, FILE_FREQUENCY, ACCESS_FREQUENCY
 from random import random, randrange
 
 """ ACCESS DISTRIBUTION WITH RESPECT TO FILE PRIORITY 
@@ -22,11 +22,6 @@ PRIORITY LEVELS:
     2 - LOW (99% of files)
 
 """
-FILE_FREQUENCY = {0: 0.01, 1: 0.09, 2: 0.99}
-ACCESS_FREQUENCY = {0: 0.15, 1: 0.35, 2: 0.5}
-
-# We want to not only print but also save the output. 
-sys.stdout = Logger()
 
 def load_configs(config_dir):
     config_dir = config_dir + '/' if config_dir[-1] != '/' else config_dir

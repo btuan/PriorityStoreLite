@@ -17,6 +17,9 @@ import numpy as np
 from threading import Thread
 import sys
 
+FILE_FREQUENCY = {0: 0.01, 1: 0.09, 2: 0.99}
+ACCESS_FREQUENCY = {0: 0.15, 1: 0.35, 2: 0.5}
+
 def psl_worker(psl, task_queue, stats):
     while True:
         command = task_queue.get()
@@ -33,19 +36,6 @@ def psl_worker(psl, task_queue, stats):
         if psl.verbose:
             print(func.__name__, args, kwargs)
         task_queue.task_done()
-
-# credit to : https://stackoverflow.com/questions/616645/how-do-i-duplicate-sys-stdout-to-a-log-file-in-python
-class Logger(object):
-    def __init__(self):
-        self.terminal = sys.stdout
-        self.log = open("log.txt", "a")
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-
-    def flush(self):
-        self.terminal.flush()
 
 class PriorityStoreLite:
     def __init__(self, config_dir, verbose=False):
@@ -78,6 +68,7 @@ class PriorityStoreLite:
             self.capacities = self.metadata["PSL"]["capacities"]
             self.latencies = self.metadata["PSL"]["latencies"]
             self.effective = self.metadata["PSL"]["effective"]
+            self.priority_counter = self.metadata["PSL"]["priority_counter"]
             return
 
         # This is usually an initial setup for a clean system.
@@ -93,6 +84,8 @@ class PriorityStoreLite:
         self.capacities = [17179869184] * self.num # old value 16777216000
         self.available = [17179869184] * self.num
         self.block_size = 67108864
+        # priority : 0 is high, 1 is medium, 2 is low.
+        self.priority_counter = [ 0.0 ] * 3
 
     def persist_metadata(self):
         self.metadata["PSL"] = {
@@ -100,7 +93,8 @@ class PriorityStoreLite:
             'available': self.available,
             'block_size': self.block_size,
             'latencies': self.latencies,
-            'effective': self.effective
+            'effective': self.effective,
+            'priority_counter': self.priority_counter
         }
         with open(self.config_dir + 'metadata.json', 'w') as f:
             json.dump(self.metadata, f)
@@ -117,6 +111,8 @@ class PriorityStoreLite:
         node_id = self.placement_node_id(priority)
         if node_id is None:
             return None
+        # Important to update the priority counter! This is for data placement algorithm.
+        self.priority_counter[priority] += 1
         node = self.datanodes[node_id]
 
         self.metadata[filename] = {
@@ -125,6 +121,7 @@ class PriorityStoreLite:
             'modified': time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()),
             'priority': priority
         }
+
         if persist:
             self.persist_metadata()
 
@@ -139,22 +136,31 @@ class PriorityStoreLite:
         # return 1.0
 
     def placement_node_id(self, priority=2, persist=True):
+        # Sort based on effectiveness
         sorted_eff = [i[0] for i in sorted(
             enumerate(self.effective), key=lambda x:x[1], reverse=True)]
         n = len(sorted_eff)
-        if priority == 0:
+        high_pr_share = self.priority_counter[0]/sum(self.capacities)
+        if priority == 0 or 1.0* sum(self.available) < 0.1 * sum(self.capacities):
             # High priority
             node = sorted_eff[0]
-        elif priority == 2:
-            # Low priority
-            node = sorted_eff[min(n - int(0.20*n), 0)]
         elif priority == 1:
             # Medium priority
-            node = sorted_eff[min(int(0.05*n), 1)]
-        else:
-            print ("WRONG PRIORITY!")
-        print ("Placement_node_id for priority", priority, "is", node)
-        print (self.effective)
+            node = sorted_eff[0]
+            if high_pr_share < FILE_FREQUENCY[0]:
+                still_missing = FILE_FREQUENCY[0] - high_pr_share
+                node = sorted_eff[max(int(still_missing*n), 1)]
+        elif priority == 2:
+            # Low priority
+            node = sorted_eff[0]
+            med_pr_share = self.priority_counter[1]/sum(self.capacities)
+            if high_pr_share < FILE_FREQUENCY[0] or med_pr_share < FILE_FREQUENCY[1]:
+                still_missing = ((FILE_FREQUENCY[0] - high_pr_share)
+                                 + (FILE_FREQUENCY[1]  - med_pr_share))
+                node = sorted_eff[max(int(still_missing*n), 1)]
+
+        # print ("Placement_node_id for priority", priority, "is", node)
+        # print (self.effective)
         # Main formula for effectiveness.
         self.available[node] -= self.block_size
         # No more available storage!

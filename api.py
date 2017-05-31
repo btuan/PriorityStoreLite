@@ -304,7 +304,7 @@ class PriorityStoreLite:
                 if node_id == i:
                     files.append(filename)
             print(i, "        %0.3f" % (self.available[i]/1073741824.0), "GB   ", 
-                  self.latencies[i], "  ", files)
+                  self.latencies[node_id], "  ", files)
         print()
 
     def print_stats(self):

@@ -73,8 +73,6 @@ def set_bottomline_latency(psl, config, size_per_file=67108864, verbose=True):
 def simulate(config_dir, output_path, verbose):
     config = load_configs(config_dir)
     psl = PriorityStoreLite(config_dir, verbose=verbose)
-    # Determine current latencies of the datanodes
-    set_bottomline_latency(psl, config)
      
     # Initialize filesystem
     # First, delete all files that are currently in this PSL instance (synchronous).
@@ -89,6 +87,8 @@ def simulate(config_dir, output_path, verbose):
     # Reset PSL metadata
     del psl.metadata["PSL"]
     psl.setup_system_info()
+    # Determine current latencies of the datanodes
+    set_bottomline_latency(psl, config)
     print()
 
     # Next, populate PSL with simulation files (synchronous).

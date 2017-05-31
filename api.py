@@ -246,7 +246,7 @@ class PriorityStoreLite:
         del self.metadata[filename]
         if persist:
             self.persist_metadata()
-        return self.execute_command(command, node)
+        return self.execute_command(node, command)
 
     def retrieve_file(self, filename, output='./', step=None):
         if filename not in self.metadata or filename == "PSL":

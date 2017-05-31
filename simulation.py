@@ -136,7 +136,9 @@ def simulate(config_dir, output_path, verbose):
                 json.dump(stats, f)
         print()
 
-    time.sleep(10)
+    # wait until all processed finish
+    while len(stats[config['duration'] - 1]) < 1:
+        time.sleep(10)
     with open('stats.json', 'w') as f:
         json.dump(stats, f)
 

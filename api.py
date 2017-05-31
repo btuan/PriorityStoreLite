@@ -102,15 +102,18 @@ class PriorityStoreLite:
     def execute_command(self, node, command):
         return run(['ssh', node, command])
 
-    def create_file(self, filename, size=67108864, node=None, priority=2, persist=True):
-        if filename in self.metadata or (node is not None and node not in self.datanodes):
+    def create_file(self, filename, size=67108864, node_id=None, priority=2, persist=True):
+        if (filename in self.metadata) or (
+            node_id is not None and self.datanodes[node_id] not in self.datanodes):
             return None
 
         path = self.config['path'] + filename
         command = "head -c {} </dev/urandom > {}".format(size, self.config['path'] + filename)
-        node_id = self.placement_node_id(priority)
         if node_id is None:
-            return None
+            node_id = self.placement_node_id(priority)
+            if node_id is None:
+                return None
+
         # Important to update the priority counter! This is for data placement algorithm.
         self.priority_counter[priority] += 1
         node = self.datanodes[node_id]
@@ -119,7 +122,8 @@ class PriorityStoreLite:
             'node_id': node_id,
             'node': self.datanodes[node_id],
             'modified': time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()),
-            'priority': priority
+            'priority': priority,
+            'size': size
         }
 
         if persist:
@@ -132,32 +136,50 @@ class PriorityStoreLite:
 
         self.execute_command(node, 'mkdir -p "{}"'.format(self.config['path'] + basename))
         return  self.execute_command(node, command)
-        # print("File creation has failed!")
-        # return 1.0
 
-    def placement_node_id(self, priority=2, persist=True):
+    def get_effective_node_id(self, sorted_eff, priority=2):
         # Sort based on effectiveness
-        sorted_eff = [i[0] for i in sorted(
-            enumerate(self.effective), key=lambda x:x[1], reverse=True)]
         n = len(sorted_eff)
+        node = sorted_eff[0]
         high_pr_share = self.priority_counter[0]/sum(self.capacities)
-        if priority == 0 or 1.0* sum(self.available) < 0.1 * sum(self.capacities):
+        if priority == 0 or 1.0* sum(self.available) > 0.1 * sum(self.capacities):
             # High priority
-            node = sorted_eff[0]
+            return node
         elif priority == 1:
             # Medium priority
-            node = sorted_eff[0]
             if high_pr_share < FILE_FREQUENCY[0]:
                 still_missing = FILE_FREQUENCY[0] - high_pr_share
                 node = sorted_eff[max(int(still_missing*n), 1)]
         elif priority == 2:
             # Low priority
-            node = sorted_eff[0]
             med_pr_share = self.priority_counter[1]/sum(self.capacities)
             if high_pr_share < FILE_FREQUENCY[0] or med_pr_share < FILE_FREQUENCY[1]:
                 still_missing = ((FILE_FREQUENCY[0] - high_pr_share)
                                  + (FILE_FREQUENCY[1]  - med_pr_share))
                 node = sorted_eff[max(int(still_missing*n), 1)]
+        return node
+
+    def fake_placement(self, avail, eff, previous_node_id, priority=2):
+        sorted_eff = [i[0] for i in sorted(
+            enumerate(eff), key=lambda x:x[1], reverse=True)]
+        node = self.get_effective_node_id(sorted_eff, priority)
+        # No need to move if effectiveness is small.
+        if abs(node - previous_node_id) <= 1:
+            node = previous_node_id
+        # Main formula for effectiveness.
+        avail[node] -= self.block_size
+        # No more available storage!
+        assert avail[node] > 0
+        eff[node] = (
+            (available[node]/self.capacities[node])**2)/self.latencies[node]
+        return node
+
+    def placement_node_id(self, priority=2, persist=True):
+        if self.num == 1:
+            return 0
+        sorted_eff = [i[0] for i in sorted(
+            enumerate(self.effective), key=lambda x:x[1], reverse=True)]
+        node = self.get_effective_node_id(sorted_eff, priority)
 
         # print ("Placement_node_id for priority", priority, "is", node)
         # print (self.effective)
@@ -170,6 +192,40 @@ class PriorityStoreLite:
         if persist:
             self.persist_metadata()
         return node
+
+
+    def placement_reassign(self):
+        # Not enough files to consider moving.
+        if 1.0* sum(self.available) > 0.7 * sum(self.capacities):
+            return
+        eff = []
+        for i in range(self.num):
+            eff.append(1.0/self.latencies[i])
+        avail = [17179869184] * self.num
+        files = sorted(self.metadata.items(), 
+            key=lambda k, v: v["priority"] if k != "PSL" else 0.0, reverse=True)
+        move = {}
+        for filename, value in files:
+            if filename == "PSL":
+                continue
+            best_place = self.fake_placement(avail, eff, value["node_id"], value["priority"]) 
+            if best_place != value["node_id"]:
+                # we need to move this 
+                move[filename] = best_place
+
+        task_list = []
+        for filename, node_id in move:
+            self.move_file(task_list, filename, node_id, persist)
+
+        psl.submit_tasks(task_list, block=True)
+        psl.persist_metadata()
+
+    def move_file(self, task_list, filename, node_id, persist=True):
+        if node is None or node not in self.datanodes:
+            return
+        info = self.metadata[filename]
+        task_list.append((psl.delete_file, [filename], {'persist': False}))
+        task_list.append((psl.create_file, [filename], {'size': info['size'], 'persist': False, 'priority': info['priority']}))
 
     def delete_file(self, filename, persist=True):
         if filename not in self.metadata or filename == "PSL":

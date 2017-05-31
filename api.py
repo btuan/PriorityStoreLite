@@ -87,9 +87,9 @@ class PriorityStoreLite:
         self.priority_counter = [ 0.0 ] * 3
     
     def recompute_effectiveness(self):
-        self.effective = []
+        self.effective = [0.0] * self.num 
         for node_id in range(self.num):
-            self.effective.append(self.effectiveness_for_node(node_id))
+            self.effectiveness_for_node(node_id)
 
     def effectiveness_for_node(self, i):
         avg_latency = min(0.5*(self.capacities[i] - self.available[i])*self.latencies[i]/self.block_size, 

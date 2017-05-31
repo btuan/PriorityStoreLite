@@ -16,6 +16,7 @@ import time
 import numpy as np
 from threading import Thread
 import sys
+import copy
 
 FILE_FREQUENCY = {0: 0.01, 1: 0.09, 2: 0.99}
 ACCESS_FREQUENCY = {0: 0.15, 1: 0.35, 2: 0.5}
@@ -31,7 +32,7 @@ def psl_worker(psl, task_queue, stats):
         time_after = time.time()
         time_taken = time_after - time_before
         # Save the statistics
-        if stats:
+        if stats and 'step' in kwargs:
             stats[int(kwargs['step'])][args[0]] = time_taken
         if psl.verbose:
             print(func.__name__, args, kwargs)
@@ -196,6 +197,7 @@ class PriorityStoreLite:
 
     def placement_reassign(self):
         # Not enough files to consider moving.
+        print("Checking placement optimization.")
         if 1.0* sum(self.available) > 0.7 * sum(self.capacities):
             return
         eff = []
@@ -212,7 +214,9 @@ class PriorityStoreLite:
             if best_place != value["node_id"]:
                 # we need to move this 
                 move[filename] = best_place
-
+        print("Placement reassign: Need to move %d" % len(move))
+        if (len(move)) < 1:
+            return
         task_list = []
         for filename, node_id in move:
             self.move_file(task_list, filename, node_id, persist)
@@ -253,7 +257,9 @@ class PriorityStoreLite:
         return run(['scp', node + ':' + self.config['path'] + filename, output])
 
     def list_files(self):
-        return self.metadata
+        tmp = copy.deepcopy(self.metadata)
+        del tmp["PSL"]
+        return tmp
 
     def submit_tasks(self, task_list, block=False, stats=None):
         """ Asynchronously process tasks in a task list, given as (func, args, kwargs). """

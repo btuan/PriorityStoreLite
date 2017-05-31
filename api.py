@@ -91,7 +91,7 @@ class PriorityStoreLite:
         for node_id in range(self.num):
             self.effective.append(self.effectiveness_for_node(node_id))
 
-    def effectiveness_for_node(self, node_id):
+    def effectiveness_for_node(self, i):
         avg_latency = min(0.5*(self.capacities[i] - self.available[i])*self.latencies[i]/self.block_size, 
                           self.latencies[i])
         worst_latency = max(self.latencies)*self.capacities[np.argmax(self.latencies)]/self.block_size

@@ -59,16 +59,17 @@ def set_bottomline_latency(psl, config, size_per_file=67108864, verbose=True):
     time_before = time.time()
     psl.retrieve_file(filename)
     time_after = time.time()
-    time_taken = time_after - time_before
+    time_taken = max(time_after - time_before, 1.0 + random())
     psl.default_latency = time_taken
     psl.latency_diff = time_taken * config["latency_difference"]
-    print("Setting initial latency differences for {} nodes".format(psl.num))
+    print("Setting initial latency differences for {} nodes: {}".format(psl.num, time_taken))
     psl.latencies = [time_taken*(1+config["latency_difference"]), time_taken] * int(psl.num*0.5)
     if int(psl.num/2.0)*2 != psl.num:
         # uneven number of datanodes
         psl.latencies.append(time_taken)
     psl.delete_file(filename)
     print(psl.latencies)
+    psl.recompute_effectiveness()
 
 def simulate(config_dir, output_path, verbose):
     config = load_configs(config_dir)
@@ -90,7 +91,8 @@ def simulate(config_dir, output_path, verbose):
     # Determine current latencies of the datanodes
     set_bottomline_latency(psl, config)
     print()
-
+    print(psl.effective, psl.available, psl.latencies)
+    return
     # Next, populate PSL with simulation files (synchronous).
     file_size = config['size_per_file'] if 'size_per_file' in config else None
     if verbose:

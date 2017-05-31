@@ -87,6 +87,11 @@ class PriorityStoreLite:
         self.block_size = 67108864
         # priority : 0 is high, 1 is medium, 2 is low.
         self.priority_counter = [ 0.0 ] * 3
+    
+    def recompute_effectiveness(self):
+        self.effective = []
+        for node_id in range(self.num):
+            self.effective.append(((self.available[node_id]/self.capacities[node_id])**2)/self.latencies[node_id])
 
     def persist_metadata(self):
         self.metadata["PSL"] = {
@@ -180,16 +185,20 @@ class PriorityStoreLite:
             return 0
         sorted_eff = [i[0] for i in sorted(
             enumerate(self.effective), key=lambda x:x[1], reverse=True)]
+        print("self.effective", self.effective)
         node = self.get_effective_node_id(sorted_eff, priority)
 
-        # print ("Placement_node_id for priority", priority, "is", node)
-        # print (self.effective)
+        print ("Placement_node_id for priority", priority, "is", node)
+        print (self.effective)
         # Main formula for effectiveness.
         self.available[node] -= self.block_size
         # No more available storage!
         assert self.available[node] > 0
         self.effective[node] = (
             (self.available[node]/self.capacities[node])**2)/self.latencies[node]
+        print("Updating effectiveness!", self.effective)
+        print(self.available[node], self.capacities[node], self.latencies[node])
+        assert self.effective[node] < 1.0
         if persist:
             self.persist_metadata()
         return node
@@ -242,7 +251,8 @@ class PriorityStoreLite:
         self.available[node_id] += self.block_size
         self.effective[node_id] = (
             (self.available[node_id]/self.capacities[node_id])**2)/self.latencies[node_id]
-
+        print("Deleteing a file!", self.available[node_id], self.capacities[node_id], self.latencies[node_id], " got ", self.effective[node_id])
+        print()
         del self.metadata[filename]
         if persist:
             self.persist_metadata()
@@ -257,6 +267,8 @@ class PriorityStoreLite:
         return run(['scp', node + ':' + self.config['path'] + filename, output])
 
     def list_files(self):
+        if "PSL" not in self.metadata:
+            return self.metadata
         tmp = copy.deepcopy(self.metadata)
         del tmp["PSL"]
         return tmp
@@ -304,7 +316,7 @@ class PriorityStoreLite:
                 if node_id == i:
                     files.append(filename)
             print(i, "        %0.3f" % (self.available[i]/1073741824.0), "GB   ", 
-                  self.latencies[node_id], "  ", files)
+                  self.latencies[i], "  ", files)
         print()
 
     def print_stats(self):

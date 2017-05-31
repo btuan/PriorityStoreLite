@@ -185,19 +185,15 @@ class PriorityStoreLite:
             return 0
         sorted_eff = [i[0] for i in sorted(
             enumerate(self.effective), key=lambda x:x[1], reverse=True)]
-        print("self.effective", self.effective)
         node = self.get_effective_node_id(sorted_eff, priority)
 
-        print ("Placement_node_id for priority", priority, "is", node)
-        print (self.effective)
+        # print ("Placement_node_id for priority", priority, "is", node)
         # Main formula for effectiveness.
         self.available[node] -= self.block_size
         # No more available storage!
         assert self.available[node] > 0
         self.effective[node] = (
             (self.available[node]/self.capacities[node])**2)/self.latencies[node]
-        print("Updating effectiveness!", self.effective)
-        print(self.available[node], self.capacities[node], self.latencies[node])
         assert self.effective[node] < 1.0
         if persist:
             self.persist_metadata()
@@ -251,8 +247,6 @@ class PriorityStoreLite:
         self.available[node_id] += self.block_size
         self.effective[node_id] = (
             (self.available[node_id]/self.capacities[node_id])**2)/self.latencies[node_id]
-        print("Deleteing a file!", self.available[node_id], self.capacities[node_id], self.latencies[node_id], " got ", self.effective[node_id])
-        print()
         del self.metadata[filename]
         if persist:
             self.persist_metadata()

@@ -62,13 +62,15 @@ def set_bottomline_latency(psl, config, size_per_file=67108864, verbose=True):
     time_taken = max(time_after - time_before, 1.0 + random())
     psl.default_latency = time_taken
     psl.latency_diff = time_taken * config["latency_difference"]
-    print("Setting initial latency differences for {} nodes: {}".format(psl.num, time_taken))
+    if verbose:
+        print("Setting initial latency differences for {} nodes: {}".format(psl.num, time_taken))
     psl.latencies = [time_taken*(1+config["latency_difference"]), time_taken] * int(psl.num*0.5)
     if int(psl.num/2.0)*2 != psl.num:
         # uneven number of datanodes
         psl.latencies.append(time_taken)
     psl.delete_file(filename)
-    print(psl.latencies)
+    if verbose:
+        print("Computer latencies are", psl.latencies)
     psl.recompute_effectiveness()
 
 def simulate(config_dir, output_path, verbose):
@@ -91,8 +93,7 @@ def simulate(config_dir, output_path, verbose):
     # Determine current latencies of the datanodes
     set_bottomline_latency(psl, config)
     print()
-    print(psl.effective, psl.available, psl.latencies)
-    return
+
     # Next, populate PSL with simulation files (synchronous).
     file_size = config['size_per_file'] if 'size_per_file' in config else None
     if verbose:
@@ -119,9 +120,11 @@ def simulate(config_dir, output_path, verbose):
 
     # Access a file per second
     stats = {}
-    print("Simulating file accesses.")
+    if verbose:
+        print("Simulating file accesses.")
     for i in range(config['duration']):
-        print("Time step", i)
+        if verbose:
+            print("Time step", i)
         stats[i] = {}
         file_list = draw_access_sample(psl, config['accesses_per_second'])
         task_list = [(psl.retrieve_file, [name], {'output': '/dev/null', 'step' : i}) for name in file_list]
@@ -131,43 +134,46 @@ def simulate(config_dir, output_path, verbose):
         print()
 
     time.sleep(10)
-    print("Stats", stats)
     with open('stats.json', 'w') as f:
+        json.dump(stats, f)
+
+    if verbose:
+        print("Stats", stats)
+
+        file_stats = {}
+        priority_stats = {}
+        for run, value in stats.items():
+            for filename, l in value.items():
+                latency = l
+                if psl.metadata[filename]["node_id"] % 2 != 0:
+                    # adding default latency difference
+                    latency += psl.latency_diff
+                pr = psl.metadata[filename]['priority']
+                if pr not in priority_stats:
+                    priority_stats[pr] = {}
+                    priority_stats[pr]["latency"] = 0.0
+                    priority_stats[pr]["counter"] = 0
+                priority_stats[pr]["latency"] += latency
+                priority_stats[pr]["counter"] += 1
+                # Add statistics on files
+                if filename not in file_stats:
+                    file_stats[filename] = {}
+                    file_stats[filename]["latency"] = 0.0
+                    file_stats[filename]["counter"] = 0
+                file_stats[filename]["latency"] += latency
+                file_stats[filename]["counter"] += 1
+
+        # Save again, now that we've updated the latencies
+        with open('stats.json', 'w') as f:
             json.dump(stats, f)
 
-    file_stats = {}
-    priority_stats = {}
-    for run, value in stats.items():
-        for filename, l in value.items():
-            latency = l
-            if psl.metadata[filename]["node_id"] % 2 != 0:
-                # adding default latency difference
-                latency += psl.latency_diff
-            pr = psl.metadata[filename]['priority']
-            if pr not in priority_stats:
-                priority_stats[pr] = {}
-                priority_stats[pr]["latency"] = 0.0
-                priority_stats[pr]["counter"] = 0
-            priority_stats[pr]["latency"] += latency
-            priority_stats[pr]["counter"] += 1
-            # Add statistics on files
-            if filename not in file_stats:
-                file_stats[filename] = {}
-                file_stats[filename]["latency"] = 0.0
-                file_stats[filename]["counter"] = 0
-            file_stats[filename]["latency"] += latency
-            file_stats[filename]["counter"] += 1
-    # Save again, now that we've updated the latencies
-    with open('stats.json', 'w') as f:
-            json.dump(stats, f)
-
-    for filename, value in file_stats.items():
-        print(filename, psl.metadata[filename]['priority'], "%0.3f" % (value["latency"]/value["counter"]))
-    
-    for pr, value in priority_stats.items():
-        print("Priority", pr, "%0.3f" % (value["latency"]/value["counter"]), " with # {} files".format(value["counter"]))
-    # And finally...
-    psl.print_stats()
+        for filename, value in file_stats.items():
+            print(filename, psl.metadata[filename]['priority'], "%0.3f" % (value["latency"]/value["counter"]))
+        
+        for pr, value in priority_stats.items():
+            print("Priority", pr, "%0.3f" % (value["latency"]/value["counter"]), " with # {} files".format(value["counter"]))
+        # And finally...
+        psl.print_stats()
 
 
 @click.command()

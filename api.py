@@ -197,13 +197,8 @@ class PriorityStoreLite:
         self.available[node] -= self.block_size
         # No more available storage!
         assert self.available[node] > 0
-<<<<<<< HEAD
         self.effectiveness_for_node(node)
-        assert self.effective[node] < 1.0
-=======
-        self.effectiveness_for_node()
         assert self.effective[node] <= 1.0
->>>>>>> 89af448f39f5f235ccab0a741d40c23563f1ab3d
         if persist:
             self.persist_metadata()
         return node

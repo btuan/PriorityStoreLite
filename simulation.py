@@ -74,6 +74,7 @@ def set_bottomline_latency(psl, config, size_per_file=67108864, verbose=True):
     psl.recompute_effectiveness()
 
 def simulate(config_dir, output_path, verbose):
+    verbose = True
     config = load_configs(config_dir)
     psl = PriorityStoreLite(config_dir, verbose=verbose)
      
@@ -132,8 +133,9 @@ def simulate(config_dir, output_path, verbose):
         psl.submit_tasks(task_list, stats=stats)
         time.sleep(1)
         if i % 10 == 0:
-            with open('stats.json', 'w') as f:
-                json.dump(stats, f)
+            #with open('stats.json', 'w') as f:
+            #    json.dump(stats, f)
+            print("Step stats", stats)
         print()
 
     # wait until all processed finish

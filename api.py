@@ -77,21 +77,26 @@ class PriorityStoreLite:
         if int(self.num/2.0)*2 != self.num:
             # uneven number of datanodes
             self.latencies.append(30)
-        self.effective = []
-        for i in range(self.num):
-            self.effective.append(1.0/self.latencies[i])
         # SOME CONSTANTS OF THE SYSTEM.
         # 16 GB storage on each
         self.capacities = [17179869184] * self.num # old value 16777216000
         self.available = [17179869184] * self.num
         self.block_size = 67108864
+        self.recompute_effectiveness()
         # priority : 0 is high, 1 is medium, 2 is low.
         self.priority_counter = [ 0.0 ] * 3
     
     def recompute_effectiveness(self):
         self.effective = []
         for node_id in range(self.num):
-            self.effective.append(((self.available[node_id]/self.capacities[node_id])**2)/self.latencies[node_id])
+            self.effective.append(self.effectiveness_for_node(node_id))
+
+    def effectiveness_for_node(self, node_id):
+        avg_latency = min(0.5*(self.capacities[i] - self.available[i])*self.latencies[i], 
+                          self.latencies[i])
+        worst_latency = max(self.latencies)*self.capacities[np.argmax(self.latencies)]
+        # the greater the avg_latency, the worse for us it is
+        self.effective[i] = avg_latency/worst_latency
 
     def persist_metadata(self):
         self.metadata["PSL"] = {
@@ -192,8 +197,7 @@ class PriorityStoreLite:
         self.available[node] -= self.block_size
         # No more available storage!
         assert self.available[node] > 0
-        self.effective[node] = (
-            (self.available[node]/self.capacities[node])**2)/self.latencies[node]
+        self.effectiveness_for_node()
         assert self.effective[node] < 1.0
         if persist:
             self.persist_metadata()
@@ -245,8 +249,7 @@ class PriorityStoreLite:
         # Recompute statistics
         node_id = self.metadata[filename]['node_id']
         self.available[node_id] += self.block_size
-        self.effective[node_id] = (
-            (self.available[node_id]/self.capacities[node_id])**2)/self.latencies[node_id]
+        self.effectiveness_for_node()
         del self.metadata[filename]
         if persist:
             self.persist_metadata()

@@ -92,9 +92,12 @@ class PriorityStoreLite:
             self.effectiveness_for_node(node_id)
 
     def effectiveness_for_node(self, i):
-        avg_latency = min(0.5*(self.capacities[i] - self.available[i])*self.latencies[i]/self.block_size, 
-                          self.latencies[i])
         worst_latency = max(self.latencies)*self.capacities[np.argmax(self.latencies)]/self.block_size
+        if self.capacities[i] == self.available[i]:
+            self.effective[i] = 2*self.latencies[i]/worst_latency
+            return
+        avg_latency = max(0.5*(self.capacities[i] - self.available[i])*self.latencies[i]/self.block_size, 
+                          self.latencies[i])
         # the greater the avg_latency, the worse for us it is
         self.effective[i] = avg_latency/worst_latency
 
@@ -197,7 +200,7 @@ class PriorityStoreLite:
         self.available[node] -= self.block_size
         # No more available storage!
         assert self.available[node] > 0
-        self.effectiveness_for_node()
+        self.effectiveness_for_node(node)
         assert self.effective[node] < 1.0
         if persist:
             self.persist_metadata()
@@ -249,7 +252,7 @@ class PriorityStoreLite:
         # Recompute statistics
         node_id = self.metadata[filename]['node_id']
         self.available[node_id] += self.block_size
-        self.effectiveness_for_node()
+        self.effectiveness_for_node(node_id)
         del self.metadata[filename]
         if persist:
             self.persist_metadata()

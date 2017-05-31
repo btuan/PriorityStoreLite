@@ -129,7 +129,7 @@ def simulate(config_dir, output_path, verbose):
         stats[i] = {}
         file_list = draw_access_sample(psl, config['accesses_per_second'])
         task_list = [(psl.retrieve_file, [name], {'output': '/dev/null', 'step' : i}) for name in file_list]
-        # task_list.append((psl.placement_reassign, [], {}))
+        task_list.append((psl.placement_reassign, [], {}))
         psl.submit_tasks(task_list, stats=stats)
         time.sleep(1)
         if i % 10 == 0:

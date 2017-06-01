@@ -90,14 +90,17 @@ class PriorityStoreLite:
         self.effective = [0.0] * self.num 
         for node_id in range(self.num):
             self.effectiveness_for_node(node_id)
-
+    
     def effectiveness_for_node(self, i):
+        self.effective[i] = self.effectiveness_for_node_helper(i, self.available)
+
+    def effectiveness_for_node_helper(self, i, available):
         worst_latency = max(self.latencies)*self.capacities[np.argmax(self.latencies)]/self.block_size
-        avg_latency = max(0.5*(self.capacities[i] - self.available[i] + self.block_size)*self.latencies[i]/self.block_size, 
+        avg_latency = max(0.5*(self.capacities[i] - available[i])*self.latencies[i]/self.block_size, 
                           self.latencies[i])
         # the greater the avg_latency, the worse for us it is
-        self.effective[i] = 1.0 - (avg_latency/worst_latency)
-
+        return 1.0 - (avg_latency/worst_latency)
+    
     def persist_metadata(self):
         self.metadata["PSL"] = {
             'capacities': self.capacities,
@@ -181,8 +184,8 @@ class PriorityStoreLite:
         avail[node] -= self.block_size
         # No more available storage!
         assert avail[node] > 0
-        eff[node] = (
-            (available[node]/self.capacities[node])**2)/self.latencies[node]
+        eff[node] = self.effectiveness_for_node_helper(node, avail)
+        # (avail[node]/self.capacities[node])**2)/self.latencies[node]
         return node
 
     def placement_node_id(self, priority=2, persist=True):
@@ -207,14 +210,14 @@ class PriorityStoreLite:
     def placement_reassign(self):
         # Not enough files to consider moving.
         print("Checking placement optimization.")
-        if sum(self.capacities) - sum(self.available) < 3221225472:
-            return
+        #if sum(self.capacities) - sum(self.available) < 3221225472:
+        #    return
         eff = []
         for i in range(self.num):
             eff.append(1.0/self.latencies[i])
         avail = [17179869184] * self.num
         files = sorted(self.metadata.items(), 
-            key=lambda k, v: v["priority"] if k != "PSL" else 0.0, reverse=True)
+                       key=lambda k: k[1]["priority"] if k[0] != "PSL" else 0.0, reverse=True)
         move = {}
         for filename, value in files:
             if filename == "PSL":
@@ -227,18 +230,18 @@ class PriorityStoreLite:
         if (len(move)) < 1:
             return
         task_list = []
-        for filename, node_id in move:
-            self.move_file(task_list, filename, node_id, persist)
+        for filename, node_id in move.items():
+            self.move_file(task_list, filename, node_id)
 
-        psl.submit_tasks(task_list, block=True)
-        psl.persist_metadata()
+        self.submit_tasks(task_list, block=True)
+        self.persist_metadata()
 
     def move_file(self, task_list, filename, node_id, persist=True):
-        if node is None or node not in self.datanodes:
+        if node_id is None or node_id not in self.datanodes:
             return
         info = self.metadata[filename]
         task_list.append((psl.delete_file, [filename], {'persist': False}))
-        task_list.append((psl.create_file, [filename], {'size': info['size'], 'persist': False, 'priority': info['priority']}))
+        task_list.append((psl.create_file, [filename], {'size': info['size'], 'node_id': node_id, 'persist': False, 'priority': info['priority']}))
 
     def delete_file(self, filename, persist=True):
         if filename not in self.metadata or filename == "PSL":

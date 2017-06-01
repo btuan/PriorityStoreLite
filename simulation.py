@@ -157,60 +157,62 @@ def simulate(config_dir, output_path, verbose):
         #if len(stats[config['duration'] - 1]) > config['accesses_per_second']/2.0:
         #    break
     
-    with open('stats.json', 'w') as f:
-        json.dump(stats, f)
-
-    if verbose:
-        print("Stats", stats)
-        file_stats = {}
-        priority_stats = {}
-        priority_stats_per_step = {}
-        for step, value in stats.items():
-            priority_stats_per_step[step] = {}
-            for filename, l in value.items():
-                latency = l
-                if psl.metadata[filename]["node_id"] % 2 != 0:
-                    # adding default latency difference
-                    latency += psl.latency_diff
-                pr = psl.metadata[filename]['priority']
-                init_key(priority_stats, pr)
-                priority_stats[pr]["latency"] += latency
-                priority_stats[pr]["counter"] += 1
-                # Add statistics on files
-                init_key(file_stats, filename)
-                file_stats[filename]["latency"] += latency
-                file_stats[filename]["counter"] += 1
-                # Add statistics per step
-                init_key(priority_stats_per_step[step], pr)
-                priority_stats_per_step[step][pr]["latency"] += latency
-                priority_stats_per_step[step][pr]["counter"] += 1
-
-        # Save again, now that we've updated the latencies
         with open('stats.json', 'w') as f:
             json.dump(stats, f)
-        with open('file_stats.json', 'w') as f:
-            json.dump(file_stats, f)
-        with open('priority_stats.json', 'w') as f:
-            json.dump(priority_stats, f)
-        with open('priority_stats_per_step.json', 'w') as f:
-            json.dump(priority_stats_per_step, f)
 
-        psl.print_stats()
+        if verbose:
+            print("Stats", stats)
+            file_stats = {}
+            priority_stats = {}
+            priority_stats_per_step = {}
+            for step, value in stats.items():
+                priority_stats_per_step[step] = {}
+                for filename, l in value.items():
+                    latency = l
+                    if psl.metadata[filename]["node_id"] % 2 != 0:
+                        # adding default latency difference
+                        latency += psl.latency_diff
+                    pr = psl.metadata[filename]['priority']
+                    init_key(priority_stats, pr)
+                    priority_stats[pr]["latency"] += latency
+                    priority_stats[pr]["counter"] += 1
+                    # Add statistics on files
+                    init_key(file_stats, filename)
+                    file_stats[filename]["latency"] += latency
+                    file_stats[filename]["counter"] += 1
+                    # Add statistics per step
+                    init_key(priority_stats_per_step[step], pr)
+                    priority_stats_per_step[step][pr]["latency"] += latency
+                    priority_stats_per_step[step][pr]["counter"] += 1
 
-        # And finally...
-        for filename, value in file_stats.items():
-            print(filename, psl.metadata[filename]['priority'], "%0.3f" % (value["latency"]/value["counter"]))
-        print()
-        for pr, value in priority_stats.items():
-            print("Priority", pr, 
-                  "%0.3f" % (value["latency"]/value["counter"]), " with # {} files".format(value["counter"]))
-        print()
-        for step, info in priority_stats_per_step.items():
-            for pr, value in info.items():
-                print("Step", step, " for priority ", pr, 
-                      " %0.3f" % (value["latency"]/value["counter"]), " with # {} files".format(value["counter"]))
+            # Save again, now that we've updated the latencies
+            with open('stats.json', 'w') as f:
+                json.dump(stats, f)
+            with open('file_stats.json', 'w') as f:
+                json.dump(file_stats, f)
+            with open('priority_stats.json', 'w') as f:
+                json.dump(priority_stats, f)
+            with open('priority_stats_per_step.json', 'w') as f:
+                json.dump(priority_stats_per_step, f)
+
+            psl.print_stats()
+
+            # And finally...
+            for filename, value in file_stats.items():
+                print(filename, psl.metadata[filename]['priority'], "%0.3f" % (value["latency"]/value["counter"]))
             print()
-        print()
+            for pr, value in priority_stats.items():
+                print("Priority", pr, 
+                      "%0.3f" % (value["latency"]/value["counter"]), " with # {} files".format(value["counter"]))
+            print()
+            for step, info in priority_stats_per_step.items():
+                for pr, value in info.items():
+                    print("Step", step, " for priority ", pr, 
+                          " %0.3f" % (value["latency"]/value["counter"]), " with # {} files".format(value["counter"]))
+                print()
+            print()
+
+    print ("DONNNNEEEEEEE ****")
 
 
 @click.command()

@@ -153,6 +153,9 @@ def simulate(config_dir, output_path, verbose):
     num_retrieved_files = sum([len(v) for step, v in stats.items()])
     while num_retrieved_files < config['duration'] * config['accesses_per_second'] - 2:
         time.sleep(10)
+        num_retrieved_files = sum([len(v) for step, v in stats.items()]) 
+        #if len(stats[config['duration'] - 1]) > config['accesses_per_second']/2.0:
+        #    break
     
     with open('stats.json', 'w') as f:
         json.dump(stats, f)

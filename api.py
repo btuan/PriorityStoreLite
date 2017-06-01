@@ -197,7 +197,7 @@ class PriorityStoreLite:
         self.available[node] -= self.block_size
         # No more available storage!
         assert self.available[node] > 0
-        self.effectiveness_for_node()
+        self.effectiveness_for_node(node)
         assert self.effective[node] <= 1.0
         if persist:
             self.persist_metadata()
@@ -207,7 +207,7 @@ class PriorityStoreLite:
     def placement_reassign(self):
         # Not enough files to consider moving.
         print("Checking placement optimization.")
-        if 1.0* sum(self.available) > 0.7 * sum(self.capacities):
+        if sum(self.capacities) - sum(self.available) < 3221225472:
             return
         eff = []
         for i in range(self.num):
@@ -249,7 +249,7 @@ class PriorityStoreLite:
         # Recompute statistics
         node_id = self.metadata[filename]['node_id']
         self.available[node_id] += self.block_size
-        self.effectiveness_for_node()
+        self.effectiveness_for_node(node_id)
         del self.metadata[filename]
         if persist:
             self.persist_metadata()
